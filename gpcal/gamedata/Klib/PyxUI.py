@@ -183,8 +183,14 @@ class UIButton(UISelectable):
             pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, self.scolor)
 
 class UIGauge(UIButton):
-    def __init__(self,x=0,y=0,w=20,h=80,fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
-        super().__init__(x,y,w,h,"",fcolor,scolor,scolor,0,selected,callback)
+    def __init__(self,calibration,x=0,y=0,w=20,h=80,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
+        super().__init__(x,y,w,h,text,fcolor,scolor,scolor,0,selected,callback)
+
+        self.calibration = calibration
+        self.value = 0
+        self.max = 0
+        self.min = 1000
+        self.touched = False
 
         self.lcolor = lcolor # line color
         self.truncate = False
@@ -194,8 +200,20 @@ class UIGauge(UIButton):
     def update(self):
         super().update()
 
-    def update_value(self,value,range):
-        self.fill = self.h * (value / range)
+    def update_value(self,value):
+
+        if value != self.value:
+            self.value = value
+            self.touched = True
+            self.min = min(self.min, value)
+            self.max = max(self.max, value)
+
+        self.fill = self.h * (value / self.calibration.get_range())
+
+    def reset_measurements(self):
+        self.max = 0
+        self.min = 1000
+        self.touched = False
 
     def toggle_truncate(self):
         self.truncate = not self.truncate
@@ -223,26 +241,44 @@ class UIGauge(UIButton):
 
         pyxel.rectb(self.x,self.y,self.w,self.h,lcolor)
         pyxel.rect(self.x + 1,self.y + 1,self.w - 2,self.fill,fcolor)
+    
+    def __str__(self):
+        if self.touched:
+            minvalue=f"{self.min:#5}"
+        else:
+            minvalue=f"{'n/a':^5}"
+
+        return f"{self.text:<15}|{self.value:#5}|{minvalue}|{self.max:#5}|" \
+                 + f"{'n/a':^5}|{self.calibration.deadzone['default']:^5}|" \
+                 + f"{self.calibration.antideadzone['default']:^5}|{'n/a':^5}|{self.calibration.max['default']:^5}|\n"
 
 class UIStick(UIButton):
-    def __init__(self,x=0,y=0,r=40,fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
-        super().__init__(x,y,r,r,"",fcolor,scolor,scolor,0,selected,callback)
+    def __init__(self,calibration,x=0,y=0,r=40,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
+        super().__init__(x,y,r,r,text,fcolor,scolor,scolor,0,selected,callback)
+        self.calibration = calibration
+        self.value = {"x":0, "y":0}
+        self.max = {"x":0, "y":0}
+        self.min = {"x":0, "y":0}
 
         self.r = r
         self.lcolor = lcolor # line color
         
-        self.xdelta = 0
-        self.ydelta = 0
+        self.delta = {"x":0, "y":0}
         self.truncate = False
     
     def update(self):
         super().update()
 
-    def update_value(self,xvalue,xrange,yvalue,yrange):        
-        self.xdelta = math.ceil((self.r * xvalue) / (xrange * 2))
-        self.ydelta = math.ceil((self.r * yvalue) / (yrange * 2))
+    def update_value(self,axis,value):
+        self.value[axis] = value
+        self.min[axis] = min(self.min[axis],value)
+        self.max[axis] = max(self.max[axis],value)
 
-        
+        self.delta[axis] = math.ceil((self.r * value) / (self.calibration.get_range(axis) * 2))
+
+    def reset_measurements(self):
+        self.max = {"x":0, "y":0}
+        self.min = {"x":0, "y":0}
 
     def toggle_truncate(self):
         self.truncate = not self.truncate
@@ -258,12 +294,12 @@ class UIStick(UIButton):
         fcolor = self.fcolor
         if self._pressed:
             if pyxel.frame_count - self._pressed_frame < 30:
-                color = self.pcolor
+                fcolor = self.pcolor
             else:
                 self._toggle_pressed()
         
         lcolor = self.lcolor
-        pythagore_sum = self.xdelta * self.xdelta + self.ydelta * self.ydelta
+        pythagore_sum = self.delta["x"] * self.delta["x"] + self.delta["y"] * self.delta["y"]
         pythagore_hypo = math.ceil((self.r * self.r) / 4)
 
         if pythagore_hypo - pythagore_sum < 2:
@@ -275,24 +311,36 @@ class UIStick(UIButton):
                 ratio2 = pythagore_hypo / pythagore_sum
                 if ratio2 < 1:
                     ratio = pow(ratio2,0.5)
-                    self.xdelta = self.xdelta * ratio
-                    self.ydelta = self.ydelta * ratio
+                    self.xdelta = self.delta["x"] * ratio
+                    self.ydelta = self.delta["y"] * ratio
 
         pyxel.circb(self.x,self.y,self.r,lcolor)
-        pyxel.circ(self.x + self.xdelta,self.y + self.ydelta,self.r/2,fcolor)
+        pyxel.circ(self.x + self.delta["x"],self.y + self.delta["y"],self.r/2,fcolor)
+
+    def __str__(self):
+        result = ""
+        for axis in ["x","y"]:
+            result += f"{self.text+'.'+axis:<15}|{self.value[axis]:#5}|{self.min[axis]:#5}|{self.max[axis]:#5}|" \
+                    + f"{self.calibration.center[axis]:^5}|{self.calibration.deadzone[axis]:^5}|" \
+                    + f"{self.calibration.antideadzone[axis]:^5}|{self.calibration.min[axis]:^5}|" \
+                    + f"{self.calibration.max[axis]:^5}|\n"
+            
+        return result
 
 class UIGamepad(UIPanel):
  
     def __init__(self,x=0,y=0):
         super().__init__(x,y,280,80,title="",lcolor=0,selected=-1)
 
-        self.gauge_triggerleft = UIGauge(self.x,self.y,fcolor=6)          # left
+        self.calibration = RPCalibration(default_trigger_max=0x755)
+
+        self.gauge_triggerleft = UIGauge(self.calibration.trigger_left,self.x,self.y,text="triggerleft",fcolor=6,)          # left
         self.add_uiobject(self.gauge_triggerleft)
-        self.stickleft = UIStick(self.x + 80,self.y + 40, 40,fcolor=6)    # left
+        self.stickleft = UIStick(self.calibration.axis_left,self.x + 80,self.y + 40, 40,text="stickleft",fcolor=6)    # left
         self.add_uiobject(self.stickleft)
-        self.stickright = UIStick(self.x + 200,self.y + 40, 40,fcolor=6)  # right
+        self.stickright = UIStick(self.calibration.axis_right,self.x + 200,self.y + 40, 40,text="stickright",fcolor=6)  # right
         self.add_uiobject(self.stickright)
-        self.gauge_triggerright = UIGauge(self.x+260,self.y,fcolor=6)     # right
+        self.gauge_triggerright = UIGauge(self.calibration.trigger_right,self.x+260,self.y,text="triggerright",fcolor=6)     # right
         self.add_uiobject(self.gauge_triggerright)
         self.textbox_info = UITextbox(self.x + 120,self.y+60, 40, 20, 1,1,7," SDL")
         self.textbox_info.toggle_visible()
@@ -305,34 +353,6 @@ class UIGamepad(UIPanel):
         self.event_size = struct.calcsize(self.event_format)
 
         self.eventpipe = os.open(self.event_path, os.O_RDONLY | os.O_NONBLOCK)
-
-        self.calibration = RPCalibration(default_trigger_max=0x755)
-
-        self.leftx = 0
-        self.leftx_min = 0
-        self.leftx_max = 0
-
-        self.lefty = 0
-        self.lefty_min = 0
-        self.lefty_max = 0
-
-        self.rightx = 0
-        self.rightx_min = 0
-        self.rightx_max = 0
-
-        self.righty = 0
-        self.righty_min = 0
-        self.righty_max = 0
-
-        self.triggerright = 0
-        self.triggerright_min = 1000
-        self.triggerright_max = 0
-        self.triggerright_touched = 0
-
-        self.triggerleft = 0
-        self.triggerleft_min = 1000
-        self.triggerleft_max = 0
-        self.triggerleft_touched = 0
     
     def find_event_path(self, gp_name=GAMEPAD_NAME):
         search_path = Path(INPUT_SEARCH_PATH)
@@ -344,32 +364,10 @@ class UIGamepad(UIPanel):
                     break
     
     def reset_measurements_all(self):
-        self.reset_measurements_stickleft()
-        self.reset_measurements_stickright()
-        self.reset_measurements_triggerleft()
-        self.reset_measurements_triggerright()
-
-    def reset_measurements_stickleft(self):
-        self.leftx_max = 0
-        self.leftx_min = 0
-        self.lefty_max = 0
-        self.lefty_min = 0
-
-    def reset_measurements_stickright(self):
-        self.rightx_max = 0
-        self.rightx_min = 0
-        self.righty_max = 0
-        self.righty_min = 0
-
-    def reset_measurements_triggerleft(self):
-        self.triggerleft_max = 0
-        self.triggerleft_min = 1000
-        self.triggerleft_touched = False
-
-    def reset_measurements_triggerright(self):
-        self.triggerright_max = 0
-        self.triggerright_min = 1000
-        self.triggerright_touched = False
+        self.stickleft.reset_measurements()
+        self.stickright.reset_measurements()
+        self.gauge_triggerleft.reset_measurements()
+        self.gauge_triggerright.reset_measurements()
 
     def backup_calibration(self):
         self.backup_calibration_data = RPCalibration()
@@ -388,51 +386,25 @@ class UIGamepad(UIPanel):
                 (tv_sec, tv_usec, type, code, value) = struct.unpack(self.event_format, event)
 
                 if type == 3 and  code == 0:  
-                    self.leftx = value
-                    self.leftx_min = min(self.leftx_min, value)
-                    self.leftx_max = max(self.leftx_max, value)
-
+                    self.stickleft.update_value("x",value)
 
                 elif type == 3 and  code == 1:
-                    self.lefty = value
-                    self.lefty_min = min(self.lefty_min, value)
-                    self.lefty_max = max(self.lefty_max, value)
+                    self.stickleft.update_value("y",value)
 
                 elif type == 3 and code == 3:
-                    self.rightx = value
-                    self.rightx_min = min(self.rightx_min, value)
-                    self.rightx_max = max(self.rightx_max, value)
+                    self.stickright.update_value("x",value)
 
                 elif type == 3 and code == 4:
-                    self.righty = value
-                    self.righty_min = min(self.righty_min, value)
-                    self.righty_max = max(self.righty_max, value)
+                    self.stickright.update_value("y",value)
 
                 elif type == 3 and  code == 20:
-                    if value != self.triggerleft:
-                        self.triggerleft_touched = True
-                    self.triggerleft = value
-
-                    if self.triggerleft_touched:
-                        self.triggerleft_min = min(self.triggerleft_min, value)
-                        self.triggerleft_max = max(self.triggerleft_max, value)
+                    self.gauge_triggerleft.update_value(value)
 
                 elif type == 3 and code == 21:
-                    if value != self.triggerright:
-                        self.triggerright_touched = True
-                    self.triggerright = value
-
-                    if self.triggerright_touched:
-                        self.triggerright_min = min(self.triggerright_min, value)
-                        self.triggerright_max = max(self.triggerright_max, value)
+                    self.gauge_triggerright.update_value(value)
 
             except OSError as e:
                 break
-
-        self.stickleft.update_value(self.leftx,self.calibration.axis_leftx_max-self.calibration.axis_leftx_antideadzone,self.lefty,self.calibration.axis_lefty_max-self.calibration.axis_lefty_antideadzone)
-        self.stickright.update_value(self.rightx,self.calibration.axis_rightx_max-self.calibration.axis_rightx_antideadzone,self.righty,self.calibration.axis_righty_max-self.calibration.axis_righty_antideadzone)
-        self.gauge_triggerleft.update_value(self.triggerleft,self.calibration.trigger_left_max-self.calibration.trigger_left_antideadzone)
-        self.gauge_triggerright.update_value(self.triggerright,self.calibration.trigger_right_max-self.calibration.trigger_right_antideadzone)
 
         super().update()
 
@@ -448,6 +420,27 @@ class UIGamepad(UIPanel):
             return
         
         super().draw()
+
+    def __str__(self):
+
+        if self.gauge_triggerleft.touched:
+            triggerleft_min=f"{self.gauge_triggerleft.min:#5}"
+        else:
+            triggerleft_min=f"{'n/a':^5}"
+
+        if self.gauge_triggerright.touched:
+            triggerright_min=f"{self.gauge_triggerright.min:#5}"
+        else:
+            triggerright_min=f"{'n/a':^5}"
+
+        return f"{'':^15}|{'raw measurements':^17}|" \
+                + f"{'calibration':^29}|\n" \
+          + f"{'axis':^15}|{'value':^5}|{'min':^5}|{'max':^5}|" \
+                + f"{'centr':^5}|{'dzone':^5}|{'adzon':^5}|{'min':^5}|{'max':^5}|\n" \
+          + self.stickleft.__str__() \
+          + self.stickright.__str__() \
+          + self.gauge_triggerleft.__str__() \
+          + self.gauge_triggerright.__str__()
 
 class UITextbox(UIObject):
     def __init__(self, x=0, y=0, w=200, h=50, fcolor=0,lcolor=7,tcolor=7,text="Display test here\nAnotherline",minshowframe=0):

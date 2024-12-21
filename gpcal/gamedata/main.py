@@ -128,44 +128,7 @@ class GPCalibrate:
         for _,ui_object in enumerate(self.ui):
             ui_object.update()
 
-        if self.ui_gamepad.triggerleft_touched:
-            triggerleft_min=f"{self.ui_gamepad.triggerleft_min:#5}"
-        else:
-            triggerleft_min=f"{'n/a':^5}"
-
-        if self.ui_gamepad.triggerright_touched:
-            triggerright_min=f"{self.ui_gamepad.triggerright_min:#5}"
-        else:
-            triggerright_min=f"{'n/a':^5}"
-
-        self.ui_textbox_data.settext( \
-            f"{'':^15}|{'raw measurements':^17}|" \
-                + f"{'calibration':^29}|\n" \
-          + f"{'axis':^15}|{'value':^5}|{'min':^5}|{'max':^5}|" \
-                + f"{'centr':^5}|{'dzone':^5}|{'adzon':^5}|{'min':^5}|{'max':^5}|\n" \
-          + f"{'left.x':<15}|{self.ui_gamepad.leftx:#5}|{self.ui_gamepad.leftx_min:#5}|{self.ui_gamepad.leftx_max:#5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_leftx_center:^5}|{self.ui_gamepad.calibration.axis_leftx_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_leftx_antideadzone:^5}|{self.ui_gamepad.calibration.axis_leftx_min:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_leftx_max:^5}|\n" \
-          + f"{'left.y':<15}|{self.ui_gamepad.lefty:#5}|{self.ui_gamepad.lefty_min:#5}|{self.ui_gamepad.lefty_max:#5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_lefty_center:^5}|{self.ui_gamepad.calibration.axis_lefty_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_lefty_antideadzone:^5}|{self.ui_gamepad.calibration.axis_lefty_min:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_lefty_max:^5}|\n" \
-          + f"{'right.x':<15}|{self.ui_gamepad.rightx:#5}|{self.ui_gamepad.rightx_min:#5}|{self.ui_gamepad.rightx_max:#5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_rightx_center:^5}|{self.ui_gamepad.calibration.axis_rightx_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_rightx_antideadzone:^5}|{self.ui_gamepad.calibration.axis_rightx_min:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_rightx_max:^5}|\n" \
-          + f"{'right.y':<15}|{self.ui_gamepad.righty:#5}|{self.ui_gamepad.righty_min:#5}|{self.ui_gamepad.righty_max:#5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_righty_center:^5}|{self.ui_gamepad.calibration.axis_righty_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_righty_antideadzone:^5}|{self.ui_gamepad.calibration.axis_righty_min:^5}|" \
-                 + f"{self.ui_gamepad.calibration.axis_righty_max:^5}|\n" \
-          + f"{'trigger.left':<15}|{self.ui_gamepad.triggerleft:#5}|{triggerleft_min}|{self.ui_gamepad.triggerleft_max:#5}|" \
-                 + f"{'n/a':^5}|{self.ui_gamepad.calibration.trigger_left_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.trigger_left_antideadzone:^5}|{'n/a':^5}|{self.ui_gamepad.calibration.trigger_left_max:^5}|\n" \
-          + f"{'trigger.right':<15}|{self.ui_gamepad.triggerright:#5}|{triggerright_min}|{self.ui_gamepad.triggerright_max:#5}|" \
-                 + f"{'n/a':^5}|{self.ui_gamepad.calibration.trigger_right_deadzone:^5}|" \
-                 + f"{self.ui_gamepad.calibration.trigger_right_antideadzone:^5}|{'n/a':^5}|{self.ui_gamepad.calibration.trigger_right_max:^5}|\n"
-        )
+        self.ui_textbox_data.settext(self.ui_gamepad.__str__())
 
     def draw(self):
         pyxel.cls(0)
