@@ -47,3 +47,18 @@ No, they'll be restored to default after a reboot. If you want them permanent yo
 ## What is SDL view ?
 
 This tool calibrates the raw value of the controller which have an unfixed and undetermined range of values that depends on the hardware and the calibration applied (center, deadzone, antideadzone). An SDL gamepad controller uses fixed ranges of value (typically -32768 to 32767), which are calculated from the raw value and the calibration parameters. When you enable the SDL view the position on stick and trigger visuals are calculated like SDL would do, typically the stick can not go ouside of the limit.
+
+# How to run the tool without PortMaster ?
+
+You need first to install the Pyxel library. The easiest way is to setup a virtual env for Python:
+
+```shell
+python3 -m venv pyxel
+source pyxel/bin/activate
+pip install --upgrade pip
+wget "https://github.com/kitao/pyxel/raw/refs/heads/main/python/requirements.txt"
+pip install -r requirements.txt
+pip install pyxel
+```
+
+Then just run `pyxel run main.py`

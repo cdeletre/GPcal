@@ -325,7 +325,35 @@ class UIGamepad(UIPanel):
         self.triggerleft = 0
         self.triggerleft_min = 1000
         self.triggerleft_max = 0
-        self.triggerright_touched = 0
+        self.triggerleft_touched = 0
+
+    def reset_measurements_all(self):
+        self.reset_measurements_stickleft()
+        self.reset_measurements_stickright()
+        self.reset_measurements_triggerleft()
+        self.reset_measurements_triggerright()
+
+    def reset_measurements_stickleft(self):
+        self.leftx_max = 0
+        self.leftx_min = 0
+        self.lefty_max = 0
+        self.lefty_min = 0
+
+    def reset_measurements_stickright(self):
+        self.rightx_max = 0
+        self.rightx_min = 0
+        self.righty_max = 0
+        self.righty_min = 0
+
+    def reset_measurements_triggerleft(self):
+        self.triggerleft_max = 0
+        self.triggerleft_min = 1000
+        self.triggerleft_touched = False
+
+    def reset_measurements_triggerright(self):
+        self.triggerright_max = 0
+        self.triggerright_min = 1000
+        self.triggerright_touched = False
 
     def backup_calibration(self):
         self.backup_calibration_data = RPCalibration()

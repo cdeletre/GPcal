@@ -127,7 +127,17 @@ class GPCalibrate:
 
         for _,ui_object in enumerate(self.ui):
             ui_object.update()
-        
+
+        if self.ui_gamepad.triggerleft_touched:
+            triggerleft_min=f"{self.ui_gamepad.triggerleft_min:#5}"
+        else:
+            triggerleft_min=f"{'n/a':^5}"
+
+        if self.ui_gamepad.triggerright_touched:
+            triggerright_min=f"{self.ui_gamepad.triggerright_min:#5}"
+        else:
+            triggerright_min=f"{'n/a':^5}"
+
         self.ui_textbox_data.settext( \
             f"{'':^15}|{'raw measurements':^17}|" \
                 + f"{'calibration':^29}|\n" \
@@ -149,10 +159,10 @@ class GPCalibrate:
                  + f"{self.ui_gamepad.calibration.axis_righty_center:^5}|{self.ui_gamepad.calibration.axis_righty_deadzone:^5}|" \
                  + f"{self.ui_gamepad.calibration.axis_righty_antideadzone:^5}|{self.ui_gamepad.calibration.axis_righty_min:^5}|" \
                  + f"{self.ui_gamepad.calibration.axis_righty_max:^5}|\n" \
-          + f"{'trigger.left':<15}|{self.ui_gamepad.triggerleft:#5}|{self.ui_gamepad.triggerleft_min:#5}|{self.ui_gamepad.triggerleft_max:#5}|" \
+          + f"{'trigger.left':<15}|{self.ui_gamepad.triggerleft:#5}|{triggerleft_min}|{self.ui_gamepad.triggerleft_max:#5}|" \
                  + f"{'n/a':^5}|{self.ui_gamepad.calibration.trigger_left_deadzone:^5}|" \
                  + f"{self.ui_gamepad.calibration.trigger_left_antideadzone:^5}|{'n/a':^5}|{self.ui_gamepad.calibration.trigger_left_max:^5}|\n" \
-          + f"{'trigger.right':<15}|{self.ui_gamepad.triggerright:#5}|{self.ui_gamepad.triggerright_min:#5}|{self.ui_gamepad.triggerright_max:#5}|" \
+          + f"{'trigger.right':<15}|{self.ui_gamepad.triggerright:#5}|{triggerright_min}|{self.ui_gamepad.triggerright_max:#5}|" \
                  + f"{'n/a':^5}|{self.ui_gamepad.calibration.trigger_right_deadzone:^5}|" \
                  + f"{self.ui_gamepad.calibration.trigger_right_antideadzone:^5}|{'n/a':^5}|{self.ui_gamepad.calibration.trigger_right_max:^5}|\n"
         )
@@ -215,23 +225,27 @@ class GPCalibrate:
 
     def start_calibrate_triggerleft(self):
         self.start_calibrate_init()
+        self.ui_gamepad.reset_measurements_triggerleft()
         self.calibrate_triggerleft = True
         self.ui_gamepad.calibration.reset_trigger_left()
 
     def start_calibrate_stickleft(self):
         self.start_calibrate_init()
+        self.ui_gamepad.reset_measurements_stickleft()
         self.calibrate_stickleft = True
         self.ui_gamepad.calibration.reset_axis_left()
         self.calibrate_axis = "x"
 
     def start_calibrate_stickright(self):
         self.start_calibrate_init()
+        self.ui_gamepad.reset_measurements_stickright()
         self.calibrate_stickright = True
         self.ui_gamepad.calibration.reset_axis_right()
         self.calibrate_axis = "x"
 
     def start_calibrate_triggerright(self):
         self.start_calibrate_init()
+        self.ui_gamepad.reset_measurements_triggerright()
         self.calibrate_triggerright = True
         self.ui_gamepad.calibration.reset_trigger_right()
 
