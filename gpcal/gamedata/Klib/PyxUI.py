@@ -7,10 +7,14 @@
 import pyxel
 import struct
 import os
+from pathlib import Path
 import math
 
 from Klib.RPocket import RPCalibration
 
+INPUT_SEARCH_PATH="/sys/class/input"
+INPUT_DEV_DIR="/dev/input"
+GAMEPAD_NAME="Retroid Pocket Gamepad"
 
 class UIObject:
     def __init__(self,x=0,y=0,w=320,h=240):
@@ -294,10 +298,13 @@ class UIGamepad(UIPanel):
         self.textbox_info.toggle_visible()
         self.add_uiobject(self.textbox_info)
 
+        self.event_path = None
+        self.find_event_path()
+
         self.event_format = 'llHHi'
         self.event_size = struct.calcsize(self.event_format)
 
-        self.eventpipe = os.open("/dev/input/event4", os.O_RDONLY | os.O_NONBLOCK)
+        self.eventpipe = os.open(self.event_path, os.O_RDONLY | os.O_NONBLOCK)
 
         self.calibration = RPCalibration(default_trigger_max=0x755)
 
@@ -326,7 +333,16 @@ class UIGamepad(UIPanel):
         self.triggerleft_min = 1000
         self.triggerleft_max = 0
         self.triggerleft_touched = 0
-
+    
+    def find_event_path(self, gp_name=GAMEPAD_NAME):
+        search_path = Path(INPUT_SEARCH_PATH)
+        for sys_event_dir in search_path.glob("event*"):
+            with open(sys_event_dir / "device" / "name", "r") as event_name_file:
+                if event_name_file.readline().strip() == gp_name:
+                    sys_event_dir.stem
+                    self.event_path=Path(INPUT_DEV_DIR) / sys_event_dir.stem
+                    break
+    
     def reset_measurements_all(self):
         self.reset_measurements_stickleft()
         self.reset_measurements_stickright()
