@@ -289,7 +289,7 @@ class UIStick(UIButton):
             return
         
         if self._selected:
-            pyxel.circb(self.x,self.y,self.r+1,self.scolor)
+            pyxel.circ(self.x,self.y,self.r+1,self.scolor)
 
         fcolor = self.fcolor
         if self._pressed:
@@ -311,9 +311,10 @@ class UIStick(UIButton):
                 ratio2 = pythagore_hypo / pythagore_sum
                 if ratio2 < 1:
                     ratio = pow(ratio2,0.5)
-                    self.xdelta = self.delta["x"] * ratio
-                    self.ydelta = self.delta["y"] * ratio
+                    self.delta["x"] = self.delta["x"] * ratio
+                    self.delta["y"] = self.delta["y"] * ratio
 
+        pyxel.circ(self.x,self.y,self.r,0)
         pyxel.circb(self.x,self.y,self.r,lcolor)
         pyxel.circ(self.x + self.delta["x"],self.y + self.delta["y"],self.r/2,fcolor)
 

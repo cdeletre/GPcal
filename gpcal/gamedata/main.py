@@ -188,27 +188,27 @@ class GPCalibrate:
 
     def start_calibrate_triggerleft(self):
         self.start_calibrate_init()
-        self.ui_gamepad.reset_measurements_triggerleft()
+        self.ui_gamepad.gauge_triggerleft.reset_measurements()
         self.calibrate_triggerleft = True
         self.ui_gamepad.calibration.reset_trigger_left()
 
     def start_calibrate_stickleft(self):
         self.start_calibrate_init()
-        self.ui_gamepad.reset_measurements_stickleft()
+        self.ui_gamepad.stickleft.reset_measurements()
         self.calibrate_stickleft = True
         self.ui_gamepad.calibration.reset_axis_left()
         self.calibrate_axis = "x"
 
     def start_calibrate_stickright(self):
         self.start_calibrate_init()
-        self.ui_gamepad.reset_measurements_stickright()
+        self.ui_gamepad.stickright.reset_measurements()
         self.calibrate_stickright = True
         self.ui_gamepad.calibration.reset_axis_right()
         self.calibrate_axis = "x"
 
     def start_calibrate_triggerright(self):
         self.start_calibrate_init()
-        self.ui_gamepad.reset_measurements_triggerright()
+        self.ui_gamepad.gauge_triggerleft.reset_measurements()
         self.calibrate_triggerright = True
         self.ui_gamepad.calibration.reset_trigger_right()
 
@@ -229,314 +229,172 @@ class GPCalibrate:
         self.stop_calibrate_clean()
 
     def run_calibrate_stickleft(self):
+
         if self.calibrate_axis == "x":
-            if self.calibrate_last_value != self.ui_gamepad.leftx:
-                self.calibrate_last_value = self.ui_gamepad.leftx
+            if self.calibrate_last_value != self.ui_gamepad.stickleft.value[self.calibrate_axis]:
+                self.calibrate_last_value = self.ui_gamepad.stickleft.value[self.calibrate_axis]
                 self.calibrate_last_value_frame = pyxel.frame_count
         elif self.calibrate_axis == "y":
-            if self.calibrate_last_value != self.ui_gamepad.lefty:
-                self.calibrate_last_value = self.ui_gamepad.lefty
+            if self.calibrate_last_value != self.ui_gamepad.stickleft.value["y"]:
+                self.calibrate_last_value = self.ui_gamepad.stickleft.value["y"]
                 self.calibrate_last_value_frame = pyxel.frame_count
 
-        if self.calibrate_axis == "x":
-            if self.calibrate_step == 0:
-                self.ui_textbox_info.settext("Step 1/12: Push stick full right few seconds and release")
-                self.calibrate_step = 1
-                print(self.calibrate_data)
+        if self.calibrate_step == 0:
+            self.ui_textbox_info.settext("Step 1/12: Push stick full right few seconds and release")
+            self.calibrate_step = 1
+            print(self.calibrate_data)
 
-            elif self.calibrate_step == 1:
+        elif self.calibrate_step == 1:
 
-                if self.calibrate_last_value > self.ui_gamepad.calibration.axis_leftx_max/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.ui_gamepad.leftx_max) / self.ui_gamepad.leftx_max) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] = self.calibrate_last_value
-                        self.calibrate_step = 2
-                
-            elif self.calibrate_step == 2:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.leftx_max) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] = self.calibrate_last_value
-                        self.calibrate_step = 3
-
-            elif self.calibrate_step == 3:
-                self.ui_textbox_info.settext("Step 2/12: Push stick full right few seconds and release")
-                self.calibrate_step = 4
-                print(self.calibrate_data)
+            if self.calibrate_last_value > self.ui_gamepad.stickleft.calibration.max[self.calibrate_axis]/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.ui_gamepad.stickleft.max[self.calibrate_axis]) / self.ui_gamepad.stickleft.max[self.calibrate_axis]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[3] = self.calibrate_last_value
+                    self.calibrate_step = 2
             
-            elif self.calibrate_step == 4:
+        elif self.calibrate_step == 2:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.stickleft.max[self.calibrate_axis]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[2] = self.calibrate_last_value
+                    self.calibrate_step = 3
 
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] += self.calibrate_last_value
-                        self.calibrate_step = 5
+        elif self.calibrate_step == 3:
+            self.ui_textbox_info.settext("Step 2/12: Push stick full right few seconds and release")
+            self.calibrate_step = 4
+            print(self.calibrate_data)
+        
+        elif self.calibrate_step == 4:
 
-            elif self.calibrate_step == 5:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] += self.calibrate_last_value
-                        self.calibrate_step = 6
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[3] += self.calibrate_last_value
+                    self.calibrate_step = 5
 
-            elif self.calibrate_step == 6:
-                self.ui_textbox_info.settext("Step 3/12: Push stick full right few seconds and release")
-                self.calibrate_step = 7
-                print(self.calibrate_data)
+        elif self.calibrate_step == 5:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[2] += self.calibrate_last_value
+                    self.calibrate_step = 6
+
+        elif self.calibrate_step == 6:
+            self.ui_textbox_info.settext("Step 3/12: Push stick full right few seconds and release")
+            self.calibrate_step = 7
+            print(self.calibrate_data)
+        
+        elif self.calibrate_step == 7:
+
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[3] += self.calibrate_last_value
+                    self.calibrate_step = 8
+
+        elif self.calibrate_step == 8:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[2] += self.calibrate_last_value
+                    self.calibrate_step = 9
+        
+        elif self.calibrate_step == 9:
+            self.ui_textbox_info.settext("Step 4/12: Push stick full left few seconds and release")
+            self.calibrate_step = 10
+            print(self.calibrate_data)
+
+        elif self.calibrate_step == 10:
+
+            if self.calibrate_last_value < self.ui_gamepad.stickleft.calibration.min[self.calibrate_axis]/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.ui_gamepad.stickleft.min[self.calibrate_axis]) / self.ui_gamepad.stickleft.min[self.calibrate_axis]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[1] = self.calibrate_last_value
+                    self.calibrate_step = 11
             
-            elif self.calibrate_step == 7:
+        elif self.calibrate_step == 11:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.stickleft.min[self.calibrate_axis]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[0] = self.calibrate_last_value
+                    self.calibrate_step = 12
 
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] += self.calibrate_last_value
-                        self.calibrate_step = 8
+        elif self.calibrate_step == 12:
+            self.ui_textbox_info.settext("Step 5/12: Push stick full left few seconds and release")
+            self.calibrate_step = 13
+            print(self.calibrate_data)
+        
+        elif self.calibrate_step == 13:
 
-            elif self.calibrate_step == 8:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] += self.calibrate_last_value
-                        self.calibrate_step = 9
-            
-            elif self.calibrate_step == 9:
-                self.ui_textbox_info.settext("Step 4/12: Push stick full left few seconds and release")
-                self.calibrate_step = 10
-                print(self.calibrate_data)
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[1] += self.calibrate_last_value
+                    self.calibrate_step = 14
 
-            elif self.calibrate_step == 10:
+        elif self.calibrate_step == 14:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[0] += self.calibrate_last_value
+                    self.calibrate_step = 15
 
-                if self.calibrate_last_value < self.ui_gamepad.calibration.axis_leftx_min/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.ui_gamepad.leftx_min) / self.ui_gamepad.leftx_min) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] = self.calibrate_last_value
-                        self.calibrate_step = 11
-                
-            elif self.calibrate_step == 11:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.leftx_min) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] = self.calibrate_last_value
-                        self.calibrate_step = 12
+        elif self.calibrate_step == 15:
+            self.ui_textbox_info.settext("Step 6/12: Push stick full left few seconds and release")
+            self.calibrate_step = 16
+            print(self.calibrate_data)
+        
+        elif self.calibrate_step == 16:
 
-            elif self.calibrate_step == 12:
-                self.ui_textbox_info.settext("Step 5/12: Push stick full left few seconds and release")
-                self.calibrate_step = 13
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 13:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[1] += self.calibrate_last_value
+                    self.calibrate_step = 17
 
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] += self.calibrate_last_value
-                        self.calibrate_step = 14
+        elif self.calibrate_step == 17:
+            if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
+                if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
+                    self.calibrate_data[0] += self.calibrate_last_value
+                    self.calibrate_step = 18
 
-            elif self.calibrate_step == 14:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] += self.calibrate_last_value
-                        self.calibrate_step = 15
+        elif self.calibrate_step == 18:
+            print(self.calibrate_data) 
 
-            elif self.calibrate_step == 15:
-                self.ui_textbox_info.settext("Step 6/12: Push stick full left few seconds and release")
-                self.calibrate_step = 16
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 16:
+            if self.calibrate_data[3] == 3 * self.ui_gamepad.stickleft.calibration.max[self.calibrate_axis] \
+                and self.calibrate_data[2] == 0 \
+                and self.calibrate_data[1] == 3 * self.ui_gamepad.stickleft.calibration.min[self.calibrate_axis]  \
+                and self.calibrate_data[0] == 0:
+                # nothing to do it's perfect !
+                pass
+            else:
+                self.calibrate_data[3] = self.calibrate_data[3] / 3  # average
+                self.calibrate_data[2] = self.calibrate_data[2] / 3  # average
+                self.calibrate_data[1] = self.calibrate_data[1] / 3  # average
+                self.calibrate_data[0] = self.calibrate_data[0] / 3  # average
 
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] += self.calibrate_last_value
-                        self.calibrate_step = 17
+                axis_center = (self.calibrate_data[2] + self.calibrate_data[0]) / 2
 
-            elif self.calibrate_step == 17:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] += self.calibrate_last_value
-                        self.calibrate_step = 18
+                self.calibrate_data[3] = self.calibrate_data[3] - axis_center   # recenter
+                self.calibrate_data[2] = self.calibrate_data[2] - axis_center   # recenter
+                self.calibrate_data[1] = self.calibrate_data[1] - axis_center   # recenter
+                self.calibrate_data[0] = self.calibrate_data[0] - axis_center   # recenter
 
-            elif self.calibrate_step == 18:
-                print(self.calibrate_data) 
+                axis_max = AXIS_MAX_PERCENT * min(abs(self.calibrate_data[1]), self.calibrate_data[3]) / 100
+                deadzone = AXIS_DEADZONE_PERCENT * (abs(self.calibrate_data[0]) + abs(self.calibrate_data[2])) / 200
+                if (100 * deadzone / axis_max) < AXIS_DEADZONE_PERCENT_MINI:
+                    deadzone = AXIS_DEADZONE_PERCENT_MINI * axis_max / 100
 
-                if self.calibrate_data[3] == 3 * self.ui_gamepad.calibration.axis_leftx_max \
-                    and self.calibrate_data[2] == 0 \
-                    and self.calibrate_data[1] == 3 * self.ui_gamepad.calibration.axis_leftx_min \
-                    and self.calibrate_data[0] == 0:
-                    # nothing to do it's perfect !
-                    pass
-                else:
-                    self.calibrate_data[3] = self.calibrate_data[3] / 3  # average
-                    self.calibrate_data[2] = self.calibrate_data[2] / 3  # average
-                    self.calibrate_data[1] = self.calibrate_data[1] / 3  # average
-                    self.calibrate_data[0] = self.calibrate_data[0] / 3  # average
+                self.ui_gamepad.stickleft.calibration.max[self.calibrate_axis] = int(axis_max)
+                self.ui_gamepad.stickleft.calibration.min[self.calibrate_axis] = -int(axis_max)
+                self.ui_gamepad.stickleft.calibration.center[self.calibrate_axis] = - int(axis_center)
+                self.ui_gamepad.stickleft.calibration.deadzone[self.calibrate_axis]  = int(deadzone)
 
-                    axis_center = (self.calibrate_data[2] + self.calibrate_data[0]) / 2
+                self.ui_gamepad.stickleft.calibration.antideadzone[self.calibrate_axis] = int(AXIS_ANTIDEADZONE_PERCENT * deadzone / 100)
 
-                    self.calibrate_data[3] = self.calibrate_data[3] - axis_center   # recenter
-                    self.calibrate_data[2] = self.calibrate_data[2] - axis_center   # recenter
-                    self.calibrate_data[1] = self.calibrate_data[1] - axis_center   # recenter
-                    self.calibrate_data[0] = self.calibrate_data[0] - axis_center   # recenter
-
-                    axis_max = AXIS_MAX_PERCENT * min(abs(self.calibrate_data[1]), self.calibrate_data[3]) / 100
-                    deadzone = AXIS_DEADZONE_PERCENT * (abs(self.calibrate_data[0]) + abs(self.calibrate_data[2])) / 200
-                    if (100 * deadzone / axis_max) < AXIS_DEADZONE_PERCENT_MINI:
-                        deadzone = AXIS_DEADZONE_PERCENT_MINI * axis_max / 100
-
-                    self.ui_gamepad.calibration.axis_leftx_max = int(axis_max)
-                    self.ui_gamepad.calibration.axis_leftx_min = -int(axis_max)
-                    self.ui_gamepad.calibration.axis_leftx_center = - int(axis_center)
-                    self.ui_gamepad.calibration.axis_leftx_deadzone  = int(deadzone)
-
-                    self.ui_gamepad.calibration.axis_leftx_antideadzone = int(AXIS_ANTIDEADZONE_PERCENT * self.ui_gamepad.calibration.axis_leftx_deadzone / 100)  # -20 %
-
+            if self.calibrate_axis == "x":
                 self.calibrate_axis="y"
                 self.calibrate_step=0
                 self.calibrate_data = [0,0,0,0]
                 self.calibrate_last_value = None
                 self.calibrate_last_value_frame = 0
-
-
-        elif self.calibrate_axis == "y":
-            if self.calibrate_step == 0:
-                self.ui_textbox_info.settext("Step 7/12: Push stick full down few seconds and release")
-                self.calibrate_step = 1
-                print(self.calibrate_data)
-
-            elif self.calibrate_step == 1:
-
-                if self.calibrate_last_value > self.ui_gamepad.calibration.axis_lefty_max/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.ui_gamepad.leftx_max) / self.ui_gamepad.leftx_max) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] = self.calibrate_last_value
-                        self.calibrate_step = 2
-                
-            elif self.calibrate_step == 2:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.leftx_max) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] = self.calibrate_last_value
-                        self.calibrate_step = 3
-
-            elif self.calibrate_step == 3:
-                self.ui_textbox_info.settext("Step 8/12: Push stick full down few seconds and release")
-                self.calibrate_step = 4
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 4:
-
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] += self.calibrate_last_value
-                        self.calibrate_step = 5
-
-            elif self.calibrate_step == 5:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] += self.calibrate_last_value
-                        self.calibrate_step = 6
-
-            elif self.calibrate_step == 6:
-                self.ui_textbox_info.settext("Step 9/12: Push stick full down few seconds and release")
-                self.calibrate_step = 7
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 7:
-
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[3]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[3] += self.calibrate_last_value
-                        self.calibrate_step = 8
-
-            elif self.calibrate_step == 8:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[2]) / self.calibrate_data[3]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[2] += self.calibrate_last_value
-                        self.calibrate_step = 9
-            
-            elif self.calibrate_step == 9:
-                self.ui_textbox_info.settext("Step 10/12: Push stick full up few seconds and release")
-                self.calibrate_step = 10
-                print(self.calibrate_data)
-
-            elif self.calibrate_step == 10:
-
-                if self.calibrate_last_value < self.ui_gamepad.calibration.axis_lefty_min/2 and (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.ui_gamepad.leftx_min) / self.ui_gamepad.leftx_min) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] = self.calibrate_last_value
-                        self.calibrate_step = 11
-                
-            elif self.calibrate_step == 11:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value) / self.ui_gamepad.leftx_min) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] = self.calibrate_last_value
-                        self.calibrate_step = 12
-
-            elif self.calibrate_step == 12:
-                self.ui_textbox_info.settext("Step 11/12: Push stick full up few seconds and release")
-                self.calibrate_step = 13
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 13:
-
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] += self.calibrate_last_value
-                        self.calibrate_step = 14
-
-            elif self.calibrate_step == 14:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] += self.calibrate_last_value
-                        self.calibrate_step = 15
-
-            elif self.calibrate_step == 15:
-                self.ui_textbox_info.settext("Step 12/12: Push stick full up few seconds and release")
-                self.calibrate_step = 16
-                print(self.calibrate_data)
-            
-            elif self.calibrate_step == 16:
-
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[1]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[1] += self.calibrate_last_value
-                        self.calibrate_step = 17
-
-            elif self.calibrate_step == 17:
-                if (pyxel.frame_count - self.calibrate_last_value_frame) > CALIBRATION_DETECTION_FPS:
-                    if abs(100 * (2 * self.calibrate_last_value - self.calibrate_data[0]) / self.calibrate_data[1]) < CALIBRATE_DETECTION_PERCENT:
-                        self.calibrate_data[0] += self.calibrate_last_value
-                        self.calibrate_step = 18
-
-
-            elif self.calibrate_step == 18:
-                print(self.calibrate_data) 
-
-                if self.calibrate_data[3] == 3 * self.ui_gamepad.calibration.axis_lefty_max \
-                    and self.calibrate_data[2] == 0 \
-                    and self.calibrate_data[1] == 3 * self.ui_gamepad.calibration.axis_lefty_min \
-                    and self.calibrate_data[0] == 0:
-                    # nothing to do it's perfect !
-                    pass
-                else:
-                    self.calibrate_data[3] = self.calibrate_data[3] / 3  # average
-                    self.calibrate_data[2] = self.calibrate_data[2] / 3  # average
-                    self.calibrate_data[1] = self.calibrate_data[1] / 3  # average
-                    self.calibrate_data[0] = self.calibrate_data[0] / 3  # average
-
-                    axis_center = (self.calibrate_data[2] + self.calibrate_data[0]) / 2
-
-                    self.calibrate_data[3] = self.calibrate_data[3] - axis_center   # recenter
-                    self.calibrate_data[2] = self.calibrate_data[2] - axis_center   # recenter
-                    self.calibrate_data[1] = self.calibrate_data[1] - axis_center   # recenter
-                    self.calibrate_data[0] = self.calibrate_data[0] - axis_center   # recenter
-
-                    axis_max = AXIS_MAX_PERCENT * min(abs(self.calibrate_data[1]), self.calibrate_data[3]) / 100
-                    deadzone = AXIS_DEADZONE_PERCENT * (abs(self.calibrate_data[0]) + abs(self.calibrate_data[2])) / 200
-
-                    if (100 * deadzone / axis_max) < AXIS_DEADZONE_PERCENT_MINI:
-                        deadzone = AXIS_DEADZONE_PERCENT_MINI * axis_max / 100
-
-                    self.ui_gamepad.calibration.axis_lefty_max = int(axis_max)
-                    self.ui_gamepad.calibration.axis_lefty_min = -int(axis_max)
-                    self.ui_gamepad.calibration.axis_lefty_center = -int(axis_center)
-                    self.ui_gamepad.calibration.axis_lefty_deadzone  = int(deadzone)
-
-                    self.ui_gamepad.calibration.axis_lefty_antideadzone = int(80 * self.ui_gamepad.calibration.axis_lefty_deadzone / 100)  # -20 %
-
-                print(self.ui_gamepad.calibration)
-                self.ui_gamepad.calibration.apply_parameters()
-                self.ui_textbox_info.settext("Calibration done")
-                self.stop_calibrate_stickleft()
+            else:
+                self.calibrate_axis=""
+                self.calibrate_step = 19
+        
+        elif self.calibrate_step == 19:
+            self.ui_gamepad.calibration.apply_parameters()
+            self.ui_textbox_info.settext("Calibration done")
+            self.stop_calibrate_stickleft()
 
 
     def run_calibrate_stickright(self):
