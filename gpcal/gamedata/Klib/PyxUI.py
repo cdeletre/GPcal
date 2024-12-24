@@ -183,37 +183,25 @@ class UIButton(UISelectable):
             pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, self.scolor)
 
 class UIGauge(UIButton):
-    def __init__(self,calibration,x=0,y=0,w=20,h=80,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
+    def __init__(self,calibration,pname="triggerleft",name="Trigger Left",x=0,y=0,w=20,h=80,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
         super().__init__(x,y,w,h,text,fcolor,scolor,scolor,0,selected,callback)
 
-        self.calibration = calibration
-        self.value = 0
-        self.max = 0
-        self.min = 1000
-        self.touched = False
-
+        self.name = name
+        self.axis=Axis(calibration,f"{pname}",f"{name}","v")
+        
         self.lcolor = lcolor # line color
+
         self.truncate = False
 
         self.fill = 0
-    
+
     def update(self):
+        self.axis.update()
+        self.fill = self.h * (self.axis.value / self.axis.calibration.get_range())
         super().update()
 
-    def update_value(self,value):
-
-        if value != self.value:
-            self.value = value
-            self.touched = True
-            self.min = min(self.min, value)
-            self.max = max(self.max, value)
-
-        self.fill = self.h * (value / self.calibration.get_range())
-
     def reset_measurements(self):
-        self.max = 0
-        self.min = 1000
-        self.touched = False
+        self.axis.reset_measurements()
 
     def toggle_truncate(self):
         self.truncate = not self.truncate
@@ -222,6 +210,7 @@ class UIGauge(UIButton):
         if not self.visible:
             return
         
+        # red line if selected
         if self._selected:
             pyxel.rectb(self.x-1,self.y-1,self.w+2,self.h+2,self.scolor)
 
@@ -241,44 +230,170 @@ class UIGauge(UIButton):
 
         pyxel.rectb(self.x,self.y,self.w,self.h,lcolor)
         pyxel.rect(self.x + 1,self.y + 1,self.w - 2,self.fill,fcolor)
+        hooking_progress=self.axis.get_hooking_progress()
+        if hooking_progress >0:
+            pyxel.rect(self.x + 1,self.y + 1,int(hooking_progress * (self.w - 2)),self.fill,self.scolor)
     
     def __str__(self):
-        if self.touched:
-            minvalue=f"{self.min:#5}"
-        else:
-            minvalue=f"{'n/a':^5}"
+        return self.axis.__str__()
 
-        return f"{self.text:<15}|{self.value:#5}|{minvalue}|{self.max:#5}|" \
-                 + f"{'n/a':^5}|{self.calibration.deadzone['default']:^5}|" \
-                 + f"{self.calibration.antideadzone['default']:^5}|{'n/a':^5}|{self.calibration.max['default']:^5}|\n"
+class Axis:
+    def __init__(self,calibration,pname="leftx",name="Left X", orientation="h"):
+        self.calibration=calibration
+        self.pname=pname
+        self.name=name
+        self.orientation=orientation
+        self.value=0
+        self.value_frame=pyxel.frame_count
+        self.percent=0
+        self.max=None
+        self.min=None
+
+        self.hooking_positive=False
+        self.hooking_negative=False
+
+        if orientation == "h":
+            self.positive_indication="right"
+            self.negative_indication="left"
+        elif self.orientation == "v":
+            self.positive_indication="down"
+            self.negative_indication="up"
+        else:
+            self.positive_indication="positive"
+            self.negative_indication="negative"
+    
+    def update_value(self,value):
+        self.value = value
+        self.value_frame = pyxel.frame_count
+        self.percent = 100 * self.value / self.calibration.max
+
+    def update(self):
+
+        if self.hooking_positive:
+            if pyxel.frame_count - self.value_frame > self.hooking_frames:
+                if 2 * self.value < self.calibration.max and self.max != None:
+                    # minimum should be less than 50% of the max value
+                    if self.min == None:
+                        self.min = self.value
+                    else:
+                        self.min = min(self.min,self.value)
+                
+                elif 2* self.value > self.calibration.max:
+                    # maximum should be more than 50% of the max value
+                    if self.max == None:
+                        self.max = self.value
+                    else:            
+                        self.max = max(self.max,self.value)
+                
+        elif self.hooking_negative:
+            if pyxel.frame_count - self.value_frame > self.hooking_frames:
+                if 2* abs(self.value) < self.calibration.max and self.min != None:
+                    # maximum should be less than 50% of the max value
+                    if self.max == None:
+                        self.max = self.value
+                    else:            
+                        self.max = min(self.max,self.value)
+
+                elif 2 * self.value < self.calibration.min:
+                    # minimum should be lower than 50% of the min value
+                    if self.min == None:
+                        self.min = self.value
+                    else:
+                        self.min = min(self.min,self.value)
+
+        else:
+            
+            if self.min == None:
+                self.min = self.value
+            else:
+                self.min = min(self.min,self.value)
+            
+            if self.max == None:
+                self.max = self.value
+            else:            
+                self.max = max(self.max,self.value)
+
+
+    def reset_measurements(self):
+        self.max = None
+        self.min = None
+
+    def enable_hooking_positive(self,frames=30):
+        self.last_hooking_frame=0
+        self.hooking_frames=frames
+        self.hooking_positive = True
+        self.reset_measurements()
+    
+    def enable_hooking_negative(self,frames=30):
+        self.last_hooking_frame=0
+        self.hooking_frames=frames
+        self.hooking_negative = True
+        self.reset_measurements()
+
+    def get_hooking_progress(self):
+        if self.hooking_negative or self.hooking_positive:
+            return min((pyxel.frame_count - self.value_frame) / self.hooking_frames, 1 )
+        else:
+            return -1
+    
+    def disable_hooking(self):
+        self.hooking_negative = False
+        self.hooking_positive = False
+        self.last_hooking_frame=0
+
+    def __str__(self):
+        if self.min == None:
+            minimum = f"{'-':^5}"
+        else:
+            minimum = f"{self.min:#5}"
+
+        if self.max == None:
+            maximum = f"{'-':^5}"
+        else:
+            maximum = f"{self.max:#5}"
+
+        try:
+            cal_center=f"{self.calibration.center:^5}"
+        except AttributeError:
+            cal_center=f"{'n/a':^5}"
+        
+        try:
+            cal_minimum=f"{self.calibration.min:^5}"
+        except AttributeError:
+            cal_minimum=f"{'n/a':^5}"
+
+        return f"{self.pname:<15}|{self.value:#5}|{minimum}|{maximum}|" \
+                + f"{cal_center}|{self.calibration.deadzone:^5}|" \
+                + f"{self.calibration.antideadzone:^5}|{cal_minimum}|" \
+                + f"{self.calibration.max:^5}|\n"
 
 class UIStick(UIButton):
-    def __init__(self,calibration,x=0,y=0,r=40,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
+    def __init__(self,calibration_x,calibration_y,pname="left",name="Left",x=0,y=0,r=40,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
         super().__init__(x,y,r,r,text,fcolor,scolor,scolor,0,selected,callback)
-        self.calibration = calibration
-        self.value = {"x":0, "y":0}
-        self.max = {"x":0, "y":0}
-        self.min = {"x":0, "y":0}
 
+        self.name = name
+
+        self.axis_x=Axis(calibration_x,f"{pname}x",f"{self.name} X","h")
+        self.axis_y=Axis(calibration_y,f"{pname}y",f"{self.name} Y","v")
+
+        self.delta_x = 0
+        self.delta_y = 0
         self.r = r
-        self.lcolor = lcolor # line color
         
-        self.delta = {"x":0, "y":0}
+        self.lcolor = lcolor # line color
+
         self.truncate = False
     
     def update(self):
+        self.axis_x.update()
+        self.axis_y.update()
+        self.delta_x = 0.5 * self.r * self.axis_x.value / self.axis_x.calibration.get_range()
+        self.delta_y = 0.5 * self.r * self.axis_y.value / self.axis_y.calibration.get_range()
         super().update()
 
-    def update_value(self,axis,value):
-        self.value[axis] = value
-        self.min[axis] = min(self.min[axis],value)
-        self.max[axis] = max(self.max[axis],value)
-
-        self.delta[axis] = math.ceil((self.r * value) / (self.calibration.get_range(axis) * 2))
-
     def reset_measurements(self):
-        self.max = {"x":0, "y":0}
-        self.min = {"x":0, "y":0}
+        self.axis_x.reset_measurements()
+        self.axis_y.reset_measurements()
 
     def toggle_truncate(self):
         self.truncate = not self.truncate
@@ -289,6 +404,7 @@ class UIStick(UIButton):
             return
         
         if self._selected:
+            # Red circle r+1 size
             pyxel.circ(self.x,self.y,self.r+1,self.scolor)
 
         fcolor = self.fcolor
@@ -298,35 +414,37 @@ class UIStick(UIButton):
             else:
                 self._toggle_pressed()
         
+        # Detect if touching edged
         lcolor = self.lcolor
-        pythagore_sum = self.delta["x"] * self.delta["x"] + self.delta["y"] * self.delta["y"]
-        pythagore_hypo = math.ceil((self.r * self.r) / 4)
+        pythagore_sum = self.delta_x * self.delta_x + self.delta_y * self.delta_y
+        pythagore_hypo = math.ceil((self.r * self.r)/4)
 
+        if pyxel.frame_count % 60 == 0:
+            print(self.delta_x,self.delta_y,pythagore_sum,pythagore_hypo)
+        
         if pythagore_hypo - pythagore_sum < 2:
             lcolor = 3
             fcolor = 3
 
+        # if SDL view
         if self.truncate:
             if pythagore_sum > 0:
                 ratio2 = pythagore_hypo / pythagore_sum
                 if ratio2 < 1:
                     ratio = pow(ratio2,0.5)
-                    self.delta["x"] = self.delta["x"] * ratio
-                    self.delta["y"] = self.delta["y"] * ratio
+                    self.delta_x = self.delta_x * ratio
+                    self.delta_y = self.delta_y * ratio
 
         pyxel.circ(self.x,self.y,self.r,0)
         pyxel.circb(self.x,self.y,self.r,lcolor)
-        pyxel.circ(self.x + self.delta["x"],self.y + self.delta["y"],self.r/2,fcolor)
+        pyxel.circ(self.x + self.delta_x,self.y + self.delta_y,self.r/2,fcolor)
+
+        hooking_progress=max(self.axis_x.get_hooking_progress() ,self.axis_y.get_hooking_progress() )
+        if hooking_progress >0:
+            pyxel.circ(self.x + self.delta_x,self.y + self.delta_y,int(hooking_progress * self.r/2),self.scolor)
 
     def __str__(self):
-        result = ""
-        for axis in ["x","y"]:
-            result += f"{self.text+'.'+axis:<15}|{self.value[axis]:#5}|{self.min[axis]:#5}|{self.max[axis]:#5}|" \
-                    + f"{self.calibration.center[axis]:^5}|{self.calibration.deadzone[axis]:^5}|" \
-                    + f"{self.calibration.antideadzone[axis]:^5}|{self.calibration.min[axis]:^5}|" \
-                    + f"{self.calibration.max[axis]:^5}|\n"
-            
-        return result
+        return self.axis_x.__str__() + self.axis_y.__str__()
 
 class UIGamepad(UIPanel):
  
@@ -335,16 +453,21 @@ class UIGamepad(UIPanel):
 
         self.calibration = RPCalibration(default_trigger_max=0x755)
 
-        self.gauge_triggerleft = UIGauge(self.calibration.trigger_left,self.x,self.y,text="triggerleft",fcolor=6,)          # left
+        self.gauge_triggerleft = UIGauge(self.calibration.trigger_left,"triggerleft","Trigger Left",self.x,self.y,fcolor=6,)          # left
         self.add_uiobject(self.gauge_triggerleft)
-        self.stickleft = UIStick(self.calibration.axis_left,self.x + 80,self.y + 40, 40,text="stickleft",fcolor=6)    # left
+
+        self.stickleft = UIStick(self.calibration.axis_leftx,self.calibration.axis_lefty,"left","Left Stick",self.x + 80,self.y + 40, 40,fcolor=6)    # left
         self.add_uiobject(self.stickleft)
-        self.stickright = UIStick(self.calibration.axis_right,self.x + 200,self.y + 40, 40,text="stickright",fcolor=6)  # right
+
+        self.stickright = UIStick(self.calibration.axis_rightx,self.calibration.axis_righty,"right","Right Stick",self.x + 200,self.y + 40, 40,fcolor=6)  # right
         self.add_uiobject(self.stickright)
-        self.gauge_triggerright = UIGauge(self.calibration.trigger_right,self.x+260,self.y,text="triggerright",fcolor=6)     # right
+
+        self.gauge_triggerright = UIGauge(self.calibration.trigger_right,"triggerright","Trigger Right",self.x+260,self.y,fcolor=6)     # right
         self.add_uiobject(self.gauge_triggerright)
+
         self.textbox_info = UITextbox(self.x + 120,self.y+60, 40, 20, 1,1,7," SDL")
         self.textbox_info.toggle_visible()
+
         self.add_uiobject(self.textbox_info)
 
         self.event_path = None
@@ -374,8 +497,8 @@ class UIGamepad(UIPanel):
         self.backup_calibration_data = RPCalibration()
 
     def restore_calibration(self):
-        self.backup_calibration_data.apply_parameters()
-        self.calibration=self.backup_calibration_data
+        self.backup_calibration_data.write_parameters()
+        self.calibration.load_parameters()
 
     def update(self):
 
@@ -387,22 +510,22 @@ class UIGamepad(UIPanel):
                 (tv_sec, tv_usec, type, code, value) = struct.unpack(self.event_format, event)
 
                 if type == 3 and  code == 0:  
-                    self.stickleft.update_value("x",value)
+                    self.stickleft.axis_x.update_value(value)
 
                 elif type == 3 and  code == 1:
-                    self.stickleft.update_value("y",value)
+                    self.stickleft.axis_y.update_value(value)
 
                 elif type == 3 and code == 3:
-                    self.stickright.update_value("x",value)
+                    self.stickright.axis_x.update_value(value)
 
                 elif type == 3 and code == 4:
-                    self.stickright.update_value("y",value)
+                    self.stickright.axis_y.update_value(value)
 
                 elif type == 3 and  code == 20:
-                    self.gauge_triggerleft.update_value(value)
+                    self.gauge_triggerleft.axis.update_value(value)
 
                 elif type == 3 and code == 21:
-                    self.gauge_triggerright.update_value(value)
+                    self.gauge_triggerright.axis.update_value(value)
 
             except OSError as e:
                 break
@@ -423,17 +546,6 @@ class UIGamepad(UIPanel):
         super().draw()
 
     def __str__(self):
-
-        if self.gauge_triggerleft.touched:
-            triggerleft_min=f"{self.gauge_triggerleft.min:#5}"
-        else:
-            triggerleft_min=f"{'n/a':^5}"
-
-        if self.gauge_triggerright.touched:
-            triggerright_min=f"{self.gauge_triggerright.min:#5}"
-        else:
-            triggerright_min=f"{'n/a':^5}"
-
         return f"{'':^15}|{'raw measurements':^17}|" \
                 + f"{'calibration':^29}|\n" \
           + f"{'axis':^15}|{'value':^5}|{'min':^5}|{'max':^5}|" \
