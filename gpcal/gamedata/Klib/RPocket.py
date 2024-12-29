@@ -5,6 +5,7 @@
     SPDX-License-Identifier: MIT
 """
 
+import pyxel
 from pathlib import Path
 import sys
 
@@ -23,6 +24,146 @@ DEFAULT_AXIS_MAX=0x580
 DEFAULT_TRIGGER_MAX=0x755
 
 PARAMETERS_DIR_PATH="/sys/module/retroid/parameters"
+
+class Axis:
+    def __init__(self,calibration,pname="leftx",name="Left X", orientation="h"):
+        self.calibration=calibration
+        self.pname=pname
+        self.name=name
+        self.orientation=orientation
+        self.value=0
+        self.value_frame=pyxel.frame_count
+        self.sdl_percent=0
+        self.max=None
+        self.min=None
+
+        self.hooking_positive=False
+        self.hooking_negative=False
+
+        if orientation == "h":
+            self.positive_indication="right"
+            self.negative_indication="left"
+        elif self.orientation == "v":
+            self.positive_indication="down"
+            self.negative_indication="up"
+        else:
+            self.positive_indication="positive"
+            self.negative_indication="negative"
+    
+    def update_value(self,value):
+        self.value = value
+        self.value_frame = pyxel.frame_count
+        self.sdl_percent = 100 * self.value / (self.calibration.max - self.calibration.antideadzone)
+        #print(f"{self.pname} = {value}")
+
+    def update(self):
+
+        if self.hooking_positive:
+            if pyxel.frame_count - self.value_frame == self.hooking_frames:
+                if 2 * self.value < self.calibration.max and self.max != None:
+                    # minimum should be less than 50% of the max value
+                    if self.min == None:
+                        self.min = self.value
+                    else:
+                        self.min = min(self.min,self.value)
+
+                    pyxel.play(0,0)
+                
+                elif 2* self.value > self.calibration.max:
+                    # maximum should be more than 50% of the max value
+                    if self.max == None:
+                        self.max = self.value
+                    else:            
+                        self.max = max(self.max,self.value)
+                    
+                    pyxel.play(0,0)
+                
+        elif self.hooking_negative:
+            if pyxel.frame_count - self.value_frame == self.hooking_frames:
+                if 2* abs(self.value) < self.calibration.max and self.min != None:
+                    # maximum should be less than 50% of the max value
+                    if self.max == None:
+                        self.max = self.value
+                    else:            
+                        self.max = min(self.max,self.value)
+                    
+                    pyxel.play(0,0)
+
+                elif 2 * self.value < self.calibration.min:
+                    # minimum should be lower than 50% of the min value
+                    if self.min == None:
+                        self.min = self.value
+                    else:
+                        self.min = min(self.min,self.value)
+                    
+                    pyxel.play(0,0)
+
+        else:
+            
+            if self.min == None:
+                self.min = self.value
+            else:
+                self.min = min(self.min,self.value)
+            
+            if self.max == None:
+                self.max = self.value
+            else:            
+                self.max = max(self.max,self.value)
+
+
+    def reset_measurements(self):
+        self.max = None
+        self.min = None
+
+    def enable_hooking_positive(self,frames=30):
+        self.last_hooking_frame=0
+        self.hooking_frames=frames
+        self.hooking_positive = True
+        self.reset_measurements()
+    
+    def enable_hooking_negative(self,frames=30):
+        self.last_hooking_frame=0
+        self.hooking_frames=frames
+        self.hooking_negative = True
+        self.reset_measurements()
+
+    def get_hooking_progress(self):
+        if self.hooking_negative or self.hooking_positive:
+            return min((pyxel.frame_count - self.value_frame) / self.hooking_frames, 1 )
+        else:
+            return -1
+    
+    def disable_hooking(self):
+        self.hooking_negative = False
+        self.hooking_positive = False
+        self.last_hooking_frame=0
+
+    def __str__(self):
+        if self.min == None:
+            minimum = f"{'-':^5}"
+        else:
+            minimum = f"{self.min:#5}"
+
+        if self.max == None:
+            maximum = f"{'-':^5}"
+        else:
+            maximum = f"{self.max:#5}"
+
+        try:
+            cal_center=f"{self.calibration.center:^5}"
+        except AttributeError:
+            cal_center=f"{'n/a':^5}"
+        
+        try:
+            cal_minimum=f"{self.calibration.min:^5}"
+        except AttributeError:
+            cal_minimum=f"{'n/a':^5}"
+
+        return f"{self.pname:<15}|{self.value:#5}|{minimum}|{maximum}|" \
+                + f"{cal_center}|{self.calibration.deadzone:^5}|" \
+                + f"{self.calibration.antideadzone:^5}|{cal_minimum}|" \
+                + f"{self.calibration.max:^5}|\n"
+
 
 class RPCalibrationControl:
     def __init__(self, parameters_dir, name, default_max):
@@ -152,14 +293,47 @@ class RPCalibrationTrigger(RPCalibrationControl):
 class RPCalibration:
     def __init__(self, parameters_dir=PARAMETERS_DIR_PATH, default_axis_max=DEFAULT_AXIS_MAX, default_trigger_max=DEFAULT_TRIGGER_MAX):
         self.parameters_dir = Path(parameters_dir)
-        self.axis_leftx = RPCalibrationAxis(parameters_dir,"axis_leftx",default_axis_max)
-        self.axis_lefty = RPCalibrationAxis(parameters_dir,"axis_lefty",default_axis_max)
-        self.axis_rightx = RPCalibrationAxis(parameters_dir,"axis_rightx",default_axis_max)
-        self.axis_righty = RPCalibrationAxis(parameters_dir,"axis_righty",default_axis_max)
-        self.trigger_left = RPCalibrationTrigger(parameters_dir,"trigger_left",default_trigger_max)
-        self.trigger_right = RPCalibrationTrigger(parameters_dir,"trigger_right",default_trigger_max)
+
+        if not self.parameters_dir.exists():
+            self.create_fake()
+            
+        self.axis_leftx = RPCalibrationAxis(self.parameters_dir,"axis_leftx",default_axis_max)
+        self.axis_lefty = RPCalibrationAxis(self.parameters_dir,"axis_lefty",default_axis_max)
+        self.axis_rightx = RPCalibrationAxis(self.parameters_dir,"axis_rightx",default_axis_max)
+        self.axis_righty = RPCalibrationAxis(self.parameters_dir,"axis_righty",default_axis_max)
+        self.trigger_left = RPCalibrationTrigger(self.parameters_dir,"trigger_left",default_trigger_max)
+        self.trigger_right = RPCalibrationTrigger(self.parameters_dir,"trigger_right",default_trigger_max)
 
         self.load_parameters()
+
+    def create_fake(self):
+        self.parameters_dir = Path("/tmp") / "rpcal.fake"
+        self.parameters_dir.mkdir(parents=True,exist_ok=True)
+
+        for axis in [ "axis_leftx", "axis_lefty", "axis_rightx", "axis_righty" ]:
+            # min / max / center / deadzone / antideadzone
+            with open(self.parameters_dir / f"{axis}_min", "w") as parameter:
+                parameter.write(f"-{DEFAULT_AXIS_MAX}")
+            with open(self.parameters_dir / f"{axis}_max", "w") as parameter:
+                parameter.write(f"{DEFAULT_AXIS_MAX}")
+            with open(self.parameters_dir / f"{axis}_center", "w") as parameter:
+                parameter.write("0")
+            with open(self.parameters_dir / f"{axis}_deadzone", "w") as parameter:
+                parameter.write("0")
+            with open(self.parameters_dir / f"{axis}_antideadzone", "w") as parameter:
+                parameter.write("0")
+        
+        for trigger in [ "trigger_left", "trigger_right" ]:
+            # min / max / center / deadzone / antideadzone
+            with open(self.parameters_dir / f"{trigger}_max", "w") as parameter:
+                parameter.write(f"{DEFAULT_AXIS_MAX}")
+            with open(self.parameters_dir / f"{trigger}_deadzone", "w") as parameter:
+                parameter.write("0")
+            with open(self.parameters_dir / f"{trigger}_antideadzone", "w") as parameter:
+                parameter.write("0")
+        
+        with open(self.parameters_dir / "update_params", "w") as parameter:
+            parameter.write("0")
 
     def load_parameters(self):
         try:
@@ -187,7 +361,7 @@ class RPCalibration:
             self.axis_righty.save_configuration(savefile)
             self.trigger_left.save_configuration(savefile)
             self.trigger_right.save_configuration(savefile)
-            savefile.write(f"echo 1 > {self.syspath}/update_params\n")
+            savefile.write(f"echo 1 > {self.parameters_dir}/update_params\n")
 
     def write_parameters(self):
         self.axis_leftx.write_parameters()

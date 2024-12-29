@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import math
 
-from Klib.RPocket import RPCalibration
+from Klib.RPocket import RPCalibration, Axis
 
 INPUT_SEARCH_PATH="/sys/class/input"
 INPUT_DEV_DIR="/dev/input"
@@ -22,7 +22,7 @@ class UIObject:
         self.y = y
         self.w = w
         self.h = h
-        self.umplus12 = pyxel.Font("umplus_j12r.bdf")
+        self.umplus12 = pyxel.Font("assets/umplus_j12r.bdf")
         self.visible = True
 
     def draw_text_with_border(self, x, y, s, col, bcol, font=None):
@@ -42,12 +42,31 @@ class UIObject:
         self.visible = not self.visible
 
 class UIPanel(UIObject):
-    def __init__(self,x=0,y=0,w=320,h=240,title="Panel",color=0,lcolor=7,selected=0,btitle=""):
+    def __init__(self,x=0,y=0,w=320,h=240,title="Panel",bcolor=0,lcolor=7,selected=0,btitle="", \
+                 btile=None,btile_u=0,btile_x=0,btile_y=0,btile_v=0,btile_w=0,btile_h=0,btile_rot=0,btile_scale=1):
         super().__init__(x,y,w,h)
         self.title = title
-        self.btitle = btitle
-        self.color = color
-        self.lcolor = lcolor
+        self.btitle = btitle        # bottom title
+        self.bcolor = bcolor         # background color
+        self.lcolor = lcolor        # line color
+
+        # background tile
+        self.btile = btile  
+        self.btile_x = btile_x
+        self.btile_y = btile_y
+        self.btile_u = btile_u
+        self.btile_v = btile_v
+        if btile_w != 0:
+            self.btile_w = btile_w
+        else:
+            self.btile_w = self.w
+
+        if btile_h != 0:
+            self.btile_h = btile_h
+        else:
+            self.btile_h = self.h
+        self.btile_rot=btile_rot
+        self.btile_scale=btile_scale
         
         self.ui_objects = []
         self._selected = selected
@@ -112,11 +131,18 @@ class UIPanel(UIObject):
         if not self.visible:
             return
         
-        pyxel.rect(self.x, self.y, self.w, self.h, self.color)
-        pyxel.rectb(self.x + 10, self.y + 10, self.w - 20, self.h - 20, self.lcolor)
+        if self.bcolor != None:
+            pyxel.rect(self.x, self.y, self.w, self.h, self.bcolor)
+
+        if self.btile != None:
+            pyxel.bltm(self.btile_x,self.btile_y,self.btile,self.btile_u,self.btile_v,self.btile_w,self.btile_h,rotate=self.btile_rot,scale=self.btile_scale)
+        
+        if self.lcolor != None:
+            pyxel.rectb(self.x + 10, self.y + 10, self.w - 20, self.h - 20, self.lcolor)
 
         self.draw_text_with_border(self.x + 20, self.y + 4, self.title,0, 7, self.umplus12)
         self.draw_text_with_border(self.x + 200, self.y + self.h - 13, self.btitle,0, 7)
+        i=0
         for _,ui_object in enumerate(self.ui_objects):
             ui_object.draw()
 
@@ -156,6 +182,7 @@ class UIButton(UISelectable):
               and ( pyxel.btnp(pyxel.KEY_RETURN) \
                     or pyxel.btnp(pyxel.GAMEPAD1_BUTTON_A)):
             self._toggle_pressed()
+            pyxel.play(0,1)
             self._run_callback()
 
     def settext(self,text):
@@ -191,7 +218,7 @@ class UIGauge(UIButton):
         
         self.lcolor = lcolor # line color
 
-        self.truncate = False
+        self.sdl_view = False
 
         self.fill = 0
 
@@ -203,8 +230,8 @@ class UIGauge(UIButton):
     def reset_measurements(self):
         self.axis.reset_measurements()
 
-    def toggle_truncate(self):
-        self.truncate = not self.truncate
+    def toggle_sdl_view(self):
+        self.sdl_view = not self.sdl_view
     
     def draw(self):
         if not self.visible:
@@ -223,149 +250,23 @@ class UIGauge(UIButton):
         
         fcolor = self.fcolor
         if self.fill >= self.h-2:
-            if self.truncate:
+            if self.sdl_view:
                 self.fill = self.h-2
             fcolor = 3
             lcolor = 3
 
         pyxel.rectb(self.x,self.y,self.w,self.h,lcolor)
+        pyxel.rect(self.x + 1,self.y + 1,self.w - 2,self.h - 2,0)
         pyxel.rect(self.x + 1,self.y + 1,self.w - 2,self.fill,fcolor)
         hooking_progress=self.axis.get_hooking_progress()
         if hooking_progress >0:
             pyxel.rect(self.x + 1,self.y + 1,int(hooking_progress * (self.w - 2)),self.fill,self.scolor)
-    
+        
+        if self.sdl_view:
+            pyxel.text(self.x, self.y + self.h /2 - 2, f"{self.axis.sdl_percent:>4.0f}%", self.lcolor)
+
     def __str__(self):
         return self.axis.__str__()
-
-class Axis:
-    def __init__(self,calibration,pname="leftx",name="Left X", orientation="h"):
-        self.calibration=calibration
-        self.pname=pname
-        self.name=name
-        self.orientation=orientation
-        self.value=0
-        self.value_frame=pyxel.frame_count
-        self.percent=0
-        self.max=None
-        self.min=None
-
-        self.hooking_positive=False
-        self.hooking_negative=False
-
-        if orientation == "h":
-            self.positive_indication="right"
-            self.negative_indication="left"
-        elif self.orientation == "v":
-            self.positive_indication="down"
-            self.negative_indication="up"
-        else:
-            self.positive_indication="positive"
-            self.negative_indication="negative"
-    
-    def update_value(self,value):
-        self.value = value
-        self.value_frame = pyxel.frame_count
-        self.percent = 100 * self.value / self.calibration.max
-
-    def update(self):
-
-        if self.hooking_positive:
-            if pyxel.frame_count - self.value_frame > self.hooking_frames:
-                if 2 * self.value < self.calibration.max and self.max != None:
-                    # minimum should be less than 50% of the max value
-                    if self.min == None:
-                        self.min = self.value
-                    else:
-                        self.min = min(self.min,self.value)
-                
-                elif 2* self.value > self.calibration.max:
-                    # maximum should be more than 50% of the max value
-                    if self.max == None:
-                        self.max = self.value
-                    else:            
-                        self.max = max(self.max,self.value)
-                
-        elif self.hooking_negative:
-            if pyxel.frame_count - self.value_frame > self.hooking_frames:
-                if 2* abs(self.value) < self.calibration.max and self.min != None:
-                    # maximum should be less than 50% of the max value
-                    if self.max == None:
-                        self.max = self.value
-                    else:            
-                        self.max = min(self.max,self.value)
-
-                elif 2 * self.value < self.calibration.min:
-                    # minimum should be lower than 50% of the min value
-                    if self.min == None:
-                        self.min = self.value
-                    else:
-                        self.min = min(self.min,self.value)
-
-        else:
-            
-            if self.min == None:
-                self.min = self.value
-            else:
-                self.min = min(self.min,self.value)
-            
-            if self.max == None:
-                self.max = self.value
-            else:            
-                self.max = max(self.max,self.value)
-
-
-    def reset_measurements(self):
-        self.max = None
-        self.min = None
-
-    def enable_hooking_positive(self,frames=30):
-        self.last_hooking_frame=0
-        self.hooking_frames=frames
-        self.hooking_positive = True
-        self.reset_measurements()
-    
-    def enable_hooking_negative(self,frames=30):
-        self.last_hooking_frame=0
-        self.hooking_frames=frames
-        self.hooking_negative = True
-        self.reset_measurements()
-
-    def get_hooking_progress(self):
-        if self.hooking_negative or self.hooking_positive:
-            return min((pyxel.frame_count - self.value_frame) / self.hooking_frames, 1 )
-        else:
-            return -1
-    
-    def disable_hooking(self):
-        self.hooking_negative = False
-        self.hooking_positive = False
-        self.last_hooking_frame=0
-
-    def __str__(self):
-        if self.min == None:
-            minimum = f"{'-':^5}"
-        else:
-            minimum = f"{self.min:#5}"
-
-        if self.max == None:
-            maximum = f"{'-':^5}"
-        else:
-            maximum = f"{self.max:#5}"
-
-        try:
-            cal_center=f"{self.calibration.center:^5}"
-        except AttributeError:
-            cal_center=f"{'n/a':^5}"
-        
-        try:
-            cal_minimum=f"{self.calibration.min:^5}"
-        except AttributeError:
-            cal_minimum=f"{'n/a':^5}"
-
-        return f"{self.pname:<15}|{self.value:#5}|{minimum}|{maximum}|" \
-                + f"{cal_center}|{self.calibration.deadzone:^5}|" \
-                + f"{self.calibration.antideadzone:^5}|{cal_minimum}|" \
-                + f"{self.calibration.max:^5}|\n"
 
 class UIStick(UIButton):
     def __init__(self,calibration_x,calibration_y,pname="left",name="Left",x=0,y=0,r=40,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
@@ -382,7 +283,7 @@ class UIStick(UIButton):
         
         self.lcolor = lcolor # line color
 
-        self.truncate = False
+        self.sdl_view = False
     
     def update(self):
         self.axis_x.update()
@@ -395,8 +296,8 @@ class UIStick(UIButton):
         self.axis_x.reset_measurements()
         self.axis_y.reset_measurements()
 
-    def toggle_truncate(self):
-        self.truncate = not self.truncate
+    def toggle_sdl_view(self):
+        self.sdl_view = not self.sdl_view
 
     def draw(self):
 
@@ -418,16 +319,13 @@ class UIStick(UIButton):
         lcolor = self.lcolor
         pythagore_sum = self.delta_x * self.delta_x + self.delta_y * self.delta_y
         pythagore_hypo = math.ceil((self.r * self.r)/4)
-
-        if pyxel.frame_count % 60 == 0:
-            print(self.delta_x,self.delta_y,pythagore_sum,pythagore_hypo)
         
         if pythagore_hypo - pythagore_sum < 2:
             lcolor = 3
             fcolor = 3
 
         # if SDL view
-        if self.truncate:
+        if self.sdl_view:
             if pythagore_sum > 0:
                 ratio2 = pythagore_hypo / pythagore_sum
                 if ratio2 < 1:
@@ -442,6 +340,10 @@ class UIStick(UIButton):
         hooking_progress=max(self.axis_x.get_hooking_progress() ,self.axis_y.get_hooking_progress() )
         if hooking_progress >0:
             pyxel.circ(self.x + self.delta_x,self.y + self.delta_y,int(hooking_progress * self.r/2),self.scolor)
+        
+        if self.sdl_view:
+            pyxel.text(self.x + self.delta_x - 12,self.y + self.delta_y - 6, f"x:{self.axis_x.sdl_percent:>4.0f}%",0)
+            pyxel.text(self.x + self.delta_x - 12,self.y + self.delta_y + 6, f"y:{self.axis_y.sdl_percent:>4.0f}%",0)
 
     def __str__(self):
         return self.axis_x.__str__() + self.axis_y.__str__()
@@ -449,7 +351,7 @@ class UIStick(UIButton):
 class UIGamepad(UIPanel):
  
     def __init__(self,x=0,y=0):
-        super().__init__(x,y,280,80,title="",lcolor=0,selected=-1)
+        super().__init__(x,y,280,80,title="",bcolor=None,lcolor=None,selected=-1)
 
         self.calibration = RPCalibration(default_trigger_max=0x755)
 
@@ -465,10 +367,10 @@ class UIGamepad(UIPanel):
         self.gauge_triggerright = UIGauge(self.calibration.trigger_right,"triggerright","Trigger Right",self.x+260,self.y,fcolor=6)     # right
         self.add_uiobject(self.gauge_triggerright)
 
-        self.textbox_info = UITextbox(self.x + 120,self.y+60, 40, 20, 1,1,7," SDL")
-        self.textbox_info.toggle_visible()
+        self.textbox_sdl_view = UITextbox(self.x + 120,self.y+60, 40, 20, 1,1,7," SDL")
+        self.textbox_sdl_view.toggle_visible()
 
-        self.add_uiobject(self.textbox_info)
+        self.add_uiobject(self.textbox_sdl_view)
 
         self.event_path = None
         self.find_event_path()
@@ -476,16 +378,20 @@ class UIGamepad(UIPanel):
         self.event_format = 'llHHi'
         self.event_size = struct.calcsize(self.event_format)
 
-        self.eventpipe = os.open(self.event_path, os.O_RDONLY | os.O_NONBLOCK)
+        if self.event_path != None:
+            self.eventpipe = os.open(self.event_path, os.O_RDONLY | os.O_NONBLOCK)
     
     def find_event_path(self, gp_name=GAMEPAD_NAME):
-        search_path = Path(INPUT_SEARCH_PATH)
-        for sys_event_dir in search_path.glob("event*"):
-            with open(sys_event_dir / "device" / "name", "r") as event_name_file:
-                if event_name_file.readline().strip() == gp_name:
-                    sys_event_dir.stem
-                    self.event_path=Path(INPUT_DEV_DIR) / sys_event_dir.stem
-                    break
+        try:
+            search_path = Path(INPUT_SEARCH_PATH)
+            for sys_event_dir in search_path.glob("event*"):
+                with open(sys_event_dir / "device" / "name", "r") as event_name_file:
+                    if event_name_file.readline().strip() == gp_name:
+                        sys_event_dir.stem
+                        self.event_path=Path(INPUT_DEV_DIR) / sys_event_dir.stem
+                        break
+        except:
+            self.event_path = None
     
     def reset_measurements_all(self):
         self.stickleft.reset_measurements()
@@ -500,12 +406,10 @@ class UIGamepad(UIPanel):
         self.backup_calibration_data.write_parameters()
         self.calibration.load_parameters()
 
-    def update(self):
-
+    def read_events(self):
         while True:
             try:
                 event = os.read(self.eventpipe, self.event_size)
-                #event = b'\x00' * 24
 
                 (tv_sec, tv_usec, type, code, value) = struct.unpack(self.event_format, event)
 
@@ -530,14 +434,51 @@ class UIGamepad(UIPanel):
             except OSError as e:
                 break
 
+    def read_sdlgamepad(self):
+
+        # Used for simulation
+        SDL_MAX = 32768
+
+        value = math.ceil(self.calibration.axis_leftx.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_LEFTX) / SDL_MAX)
+        if self.stickleft.axis_x.value != value:
+            self.stickleft.axis_x.update_value(value)
+
+        value = math.ceil(self.calibration.axis_lefty.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_LEFTY) / SDL_MAX)
+        if self.stickleft.axis_y.value != value:
+            self.stickleft.axis_y.update_value(value)
+
+        value = math.ceil(self.calibration.axis_rightx.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_RIGHTX) / SDL_MAX)
+        if self.stickright.axis_x.value != value:
+            self.stickright.axis_x.update_value(value)
+
+        value = math.ceil(self.calibration.axis_righty.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_RIGHTY) / SDL_MAX)
+        if self.stickright.axis_y.value != value:
+            self.stickright.axis_y.update_value(value)
+
+        value = math.ceil(self.calibration.trigger_left.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_TRIGGERLEFT) / SDL_MAX)
+        if self.gauge_triggerleft.axis.value != value:
+            self.gauge_triggerleft.axis.update_value(value)
+
+        value = math.ceil(self.calibration.trigger_right.max * pyxel.btnv(pyxel.GAMEPAD1_AXIS_TRIGGERRIGHT) / SDL_MAX)
+        if self.gauge_triggerright.axis.value != value:
+            self.gauge_triggerright.axis.update_value(value)
+
+
+    def update(self):
+
+        if self.event_path == None:
+            self.read_sdlgamepad()
+        else:
+            self.read_events()        
+
         super().update()
 
     def toggle_sdl_view(self):
-        self.stickleft.toggle_truncate()
-        self.stickright.toggle_truncate()
-        self.gauge_triggerleft.toggle_truncate()
-        self.gauge_triggerright.toggle_truncate()
-        self.textbox_info.toggle_visible()
+        self.stickleft.toggle_sdl_view()
+        self.stickright.toggle_sdl_view()
+        self.gauge_triggerleft.toggle_sdl_view()
+        self.gauge_triggerright.toggle_sdl_view()
+        self.textbox_sdl_view.toggle_visible()
 
     def draw(self):
         if not self.visible:
