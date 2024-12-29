@@ -1,7 +1,7 @@
 """
     PyxUI: a very basic Pyxel User Interface library
     Author: Kdog
-    Version: 0.1
+    Version: 0.2
     SPDX-License-Identifier: MIT
 """
 import pyxel

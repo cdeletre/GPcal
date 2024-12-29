@@ -1,7 +1,7 @@
 """
     RPocket: a library for Retroid Pocket (5/Mini)
     Author: Kdog
-    Version: 0.1
+    Version: 0.2
     SPDX-License-Identifier: MIT
 """
 
