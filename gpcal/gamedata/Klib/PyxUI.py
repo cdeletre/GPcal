@@ -43,7 +43,7 @@ class UIObject:
 
 class UIPanel(UIObject):
     def __init__(self,x=0,y=0,w=320,h=240,title="Panel",bcolor=0,lcolor=7,selected=0,btitle="", \
-                 btile=None,btile_u=0,btile_x=0,btile_y=0,btile_v=0,btile_w=0,btile_h=0,btile_rot=0,btile_scale=1):
+                 btile=None,btile_u=0,btile_x=0,btile_y=0,btile_v=0,btile_w=0,btile_h=0,btile_colkey=None,btile_rot=0,btile_scale=1):
         super().__init__(x,y,w,h)
         self.title = title
         self.btitle = btitle        # bottom title
@@ -67,6 +67,7 @@ class UIPanel(UIObject):
             self.btile_h = self.h
         self.btile_rot=btile_rot
         self.btile_scale=btile_scale
+        self.btile_colkey=btile_colkey
         
         self.ui_objects = []
         self._selected = selected
@@ -135,7 +136,7 @@ class UIPanel(UIObject):
             pyxel.rect(self.x, self.y, self.w, self.h, self.bcolor)
 
         if self.btile != None:
-            pyxel.bltm(self.btile_x,self.btile_y,self.btile,self.btile_u,self.btile_v,self.btile_w,self.btile_h,rotate=self.btile_rot,scale=self.btile_scale)
+            pyxel.bltm(self.btile_x,self.btile_y,self.btile,self.btile_u,self.btile_v,self.btile_w,self.btile_h,self.btile_colkey,self.btile_rot,self.btile_scale)
         
         if self.lcolor != None:
             pyxel.rectb(self.x + 10, self.y + 10, self.w - 20, self.h - 20, self.lcolor)
@@ -156,7 +157,7 @@ class UISelectable(UIObject):
         self._selected = not self._selected
 
 class UIButton(UISelectable):
-    def __init__(self,x=0,y=0,w=60,h=16,text="Button",fcolor=13,scolor=7,pcolor=7,tcolor=0,selected=False, callback=None):
+    def __init__(self,x=0,y=0,w=60,h=16,text="Button",fcolor=13,scolor=7,pcolor=8,tcolor=0,selected=False, callback=None):
         super().__init__(x,y,w,h,selected,scolor)
 
         self.fcolor = fcolor          # button color
@@ -198,16 +199,22 @@ class UIButton(UISelectable):
         color = self.fcolor
         if self._pressed:
             if pyxel.frame_count - self._pressed_frame < 30:
-                color = self.pcolor
+                #color = self.pcolor
+                pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, self.pcolor)
             else:
                 self._toggle_pressed()
-
-        pyxel.rect(self.x, self.y, self.w, self.h, color)
+        
+        if self._selected:
+            pyxel.rect(self.x, self.y, self.w, self.h, self.scolor)
+        else:
+            pyxel.rect(self.x, self.y, self.w, self.h, self.fcolor)
 
         pyxel.text(self.x + 4,self.y + 2,f"{self.text}",self.tcolor,self.umplus12)
 
-        if self._selected:
-            pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, self.scolor)
+        #if self._selected:
+        #    pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, 0)
+        #else:
+        #    pyxel.rectb(self.x - 1, self.y - 1, self.w + 2, self.h + 2, 7)
 
 class UIGauge(UIButton):
     def __init__(self,calibration,pname="triggerleft",name="Trigger Left",x=0,y=0,w=20,h=80,text="",fcolor=7,lcolor=7,scolor=8,selected=False,callback=None):
@@ -239,7 +246,7 @@ class UIGauge(UIButton):
         
         # red line if selected
         if self._selected:
-            pyxel.rectb(self.x-1,self.y-1,self.w+2,self.h+2,self.scolor)
+            pyxel.rect(self.x-2,self.y-2,self.w+4,self.h+4,self.scolor)
 
         lcolor = self.lcolor
         if self._pressed:
@@ -306,7 +313,7 @@ class UIStick(UIButton):
         
         if self._selected:
             # Red circle r+1 size
-            pyxel.circ(self.x,self.y,self.r+1,self.scolor)
+            pyxel.circ(self.x,self.y,self.r+2,self.scolor)
 
         fcolor = self.fcolor
         if self._pressed:

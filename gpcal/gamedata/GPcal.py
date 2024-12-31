@@ -43,7 +43,7 @@ class GPCalibrate:
         self.calibrate_data = [0,0,0,0]  # -max , -min, +min, +max
 
         # Create UI main panel
-        ui_panel = UIPanel(title=TITLE,selected=1,btitle="made with <3 with Pyxel",btile=0,btile_x=-32,btile_y=-32,btile_w=320+64,btile_h=280+64,btile_rot=30)
+        ui_panel = UIPanel(title=TITLE,bcolor=1,selected=1,btitle="made with <3 with Pyxel",btile=0,btile_x=-64,btile_y=-64,btile_w=320+128,btile_h=280+128,btile_colkey=14,btile_rot=30)
 
         # Create the gamepad object
         self.ui_gamepad = UIGamepad(20,140)
@@ -56,26 +56,26 @@ class GPCalibrate:
         ui_panel.add_uiobject(self.ui_gamepad)
 
         # Create the buttons
-        self.button_calibrate = UIButton(20,20,60,16,"Calibrate",callback=self.start_calibration)
+        self.button_calibrate = UIButton(20,20,60,16,"Calibrate",6, callback=self.start_calibration)
         ui_panel.add_uiobject(self.button_calibrate, True)
 
-        self.button_sdlview = UIButton(90,20,60,16,"SDL view", callback=self.toggle_sdl_view)
+        self.button_sdlview = UIButton(90,20,60,16,"SDL view",6, callback=self.toggle_sdl_view)
         ui_panel.add_uiobject(self.button_sdlview)
 
-        self.button_reset = UIButton(160,20,40,16,"Reset", callback=self.reset_calibration)
+        self.button_reset = UIButton(160,20,40,16,"Reset",6, callback=self.reset_calibration)
         ui_panel.add_uiobject(self.button_reset)
 
-        self.button_save = UIButton(210,20,40,16,"Save",callback=self.save_calibration)
+        self.button_save = UIButton(210,20,40,16,"Save",6, callback=self.save_calibration)
         ui_panel.add_uiobject(self.button_save)
 
-        self.button_quit = UIButton(260,20,40,16,"Quit",callback=self.exit)
+        self.button_quit = UIButton(260,20,40,16,"Quit",6, callback=self.exit)
         ui_panel.add_uiobject(self.button_quit)
 
         # Create the textbox
-        self.ui_textbox_info = UITextbox(20,40,280,30,1,text="Ahoy ! Welcome to Kdog Retroid Pocket Gamepad calibation tool",minshowframe=FPS)
+        self.ui_textbox_info = UITextbox(20,40,280,30,5,text="Ahoy ! Welcome to Kdog Retroid Pocket Gamepad calibation tool",minshowframe=FPS)
         ui_panel.add_uiobject(self.ui_textbox_info)
 
-        self.ui_textbox_data = UITextbox(20,65,280,70,1,text="")
+        self.ui_textbox_data = UITextbox(20,65,280,70,5,text="")
         ui_panel.add_uiobject(self.ui_textbox_data)
 
         self.ui.append(ui_panel)
@@ -116,12 +116,27 @@ class GPCalibrate:
 
         self.ui_textbox_data.settext(self.ui_gamepad.__str__())
 
+    def draw_control_hint(self,x,y):
+
+        pyxel.blt(14, y, 0, 0, 64, 16, 16, 14)      # A button
+        pyxel.blt(x+10, y+1, 0, 32, 64, 16, 8, 14)  # OK
+        pyxel.blt(x+24, y, 0, 16, 64, 16, 16, 14)   # B buttom
+        pyxel.blt(x+34, y+1, 0, 32, 72, 16, 8, 14)  # BACL
+
+        pyxel.blt(x+56, y+1, 0, 48, 72, 16, 8, 14)      # DPAD left
+        pyxel.blt(x+63, y-3, 0, 48, 72, 16, 8, 14,90)   # DPAD down
+        pyxel.blt(x+70, y+3, 0, 48, 72, 16, 8, 14,-90)  # DPAD up
+        pyxel.blt(x+77, y+1, 0, 48, 72, -16, 8, 14)     # DPAD right
+        pyxel.blt(x+94, y+1, 0, 48, 64, 16, 8, 14)      # NAV
+
     def draw(self):
         pyxel.cls(0)
 
         for _,ui_object in enumerate(self.ui):
-            ui_object.draw()        
-
+            ui_object.draw()
+        
+        self.draw_control_hint(14,225)
+        
     def save_calibration(self):
         savepath = Path.home() / ".config" / "autostart"
         savepath.mkdir(parents=True,exist_ok=True)
@@ -130,10 +145,12 @@ class GPCalibrate:
         savepath.chmod(0o777)
         self.ui_textbox_info.settext(f"Calibration data saved to")
         self.ui_textbox_info.settext(f"{savepath}")
+        self.ui_textbox_info.settext("Where to sail now captain ?")
 
     def reset_calibration(self):
         self.ui_gamepad.calibration.reset_all()
         self.ui_textbox_info.settext("Calibration data reset to default")
+        self.ui_textbox_info.settext("Where to sail now captain ?")
 
     def toggle_sdl_view(self):
         self.ui_gamepad.toggle_sdl_view()
@@ -169,7 +186,7 @@ class GPCalibrate:
         self.ui_gamepad.enable_selection()
         self.calibrate_step = 0
 
-        self.ui_textbox_info.settext("Where to sail now captain ?")
+        self.ui_textbox_info.settext("Which control do you want to calibrate ?")
 
     def start_calibrate_stickleft(self):
         self.start_calibrate_init()
